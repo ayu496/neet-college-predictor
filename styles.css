@@ -142,3 +142,6 @@ input.bad, select.bad { border-color: var(--err); }
 
 .disclaimer { color: var(--muted); font-size: .78rem; margin: 16px 0 24px; }
 .foot { color: var(--muted); font-size: .78rem; text-align: center; padding-bottom: 24px; }
+.phone-hint { color: var(--muted); font-size: .8rem; margin: 4px 0 0; text-align: right; }
+.phone-hint.done { color: var(--safe); }
+.phone-hint.done::before { content: "✓ "; }

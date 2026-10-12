@@ -47,7 +47,7 @@ function doGet(e) {
 function saveLead_(d) {
   var phone = String(d.phone || "").replace(/\D/g, "");
   var score = Number(d.score);
-  if (!/^[6-9]\d{9}$/.test(phone)) return { ok: false, error: "invalid phone" };
+  if (!validPhone_(phone)) return { ok: false, error: "invalid phone" };
   if (!(score >= 0 && score <= 720)) return { ok: false, error: "invalid score" };
   if (CATEGORIES.indexOf(d.category) < 0) return { ok: false, error: "invalid category" };
 
@@ -75,7 +75,7 @@ function saveEvent_(d) {
   return { ok: true };
 }
 
-/** Funnel (unique sessions per event) and leads, split by utm_source. Phones are masked. */
+/** Funnel (event counts + unique sessions) and leads, split by utm_source. Phones are masked. */
 function stats_(includeTest) {
   var funnel = {}, leadsBySource = {}, recent = [];
   var ev = rows_("Events");
@@ -83,11 +83,10 @@ function stats_(includeTest) {
   ev.forEach(function (r) {
     if (r.is_test && !includeTest) return;
     var src = r.utm_source || "direct";
-    var k = r.event + "|" + r.session_id;
-    if (seen[k]) return;
-    seen[k] = true;
-    funnel[src] = funnel[src] || { page_view: 0, form_start: 0, form_submit: 0, result_view: 0, cta_click: 0 };
+    funnel[src] = funnel[src] || { page_view: 0, form_start: 0, form_submit: 0, result_view: 0, cta_click: 0, sessions: 0 };
     if (funnel[src][r.event] != null) funnel[src][r.event]++;
+    var k = src + "|" + r.session_id;
+    if (!seen[k]) { seen[k] = true; funnel[src].sessions++; }
   });
   rows_("Leads").forEach(function (r) {
     if (r.is_test && !includeTest) return;
@@ -134,6 +133,15 @@ function rows_(name) {
 function clean_(s, max) {
   s = String(s == null ? "" : s).slice(0, max || 100);
   return /^[=+\-@]/.test(s) ? "'" + s : s;
+}
+
+// Same rules as phoneError() in app.js: 10 digits, starts 6–9, not an obvious fake.
+function validPhone_(d) {
+  if (!/^[6-9]\d{9}$/.test(d)) return false;
+  var distinct = {};
+  for (var i = 0; i < d.length; i++) distinct[d.charAt(i)] = 1;
+  if (Object.keys(distinct).length < 4) return false;
+  return "01234567890123456789".indexOf(d) < 0 && "98765432109876543210".indexOf(d) < 0;
 }
 
 function mask_(p) { return p.length === 10 ? p.slice(0, 2) + "XXXXXX" + p.slice(8) : "XXXXXXXXXX"; }

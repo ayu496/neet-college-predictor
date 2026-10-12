@@ -37,7 +37,7 @@
       <p class="note" id="mode"></p>
     </div>
     <div class="tiles" id="tiles"></div>
-    <div class="card"><h3>Funnel by source <span class="note">(unique sessions)</span></h3><div class="scroll" id="funnel"></div></div>
+    <div class="card"><h3>Funnel by source <span class="note">(event counts)</span></h3><div class="scroll" id="funnel"></div></div>
     <div class="card"><h3>Leads <span class="note">(phones masked)</span></h3><div class="scroll" id="leads"></div></div>
   </main>
   <script src="config.js"></script>
@@ -55,10 +55,10 @@
       var funnel = {}, seen = {}, by = {};
       ev.forEach(function (r) {
         if (r.is_test && !includeTest) return;
-        var k = r.event + "|" + r.session_id; if (seen[k]) return; seen[k] = 1;
         var s = r.utm_source || "direct";
-        funnel[s] = funnel[s] || { page_view: 0, form_start: 0, form_submit: 0, result_view: 0, cta_click: 0 };
-        funnel[s][r.event]++;
+        funnel[s] = funnel[s] || { page_view: 0, form_start: 0, form_submit: 0, result_view: 0, cta_click: 0, sessions: 0 };
+        if (funnel[s][r.event] != null) funnel[s][r.event]++;
+        if (!seen[s + "|" + r.session_id]) { seen[s + "|" + r.session_id] = 1; funnel[s].sessions++; }
       });
       var recent = leads.filter(function (l) { return includeTest || !l.is_test; }).map(function (l) {
         var s = l.utm_source || "direct";
@@ -70,25 +70,26 @@
 
     function render(d) {
       if (!d.ok) { document.getElementById("mode").textContent = "Error: " + (d.error || "failed"); return; }
-      var tot = { page_view: 0, form_start: 0, form_submit: 0, result_view: 0, cta_click: 0 };
-      Object.keys(d.funnel).forEach(function (s) { STEPS.forEach(function (k) { tot[k] += d.funnel[s][k] || 0; }); });
-      var leadsTotal = 0; Object.keys(d.leadsBySource).forEach(function (s) { leadsTotal += d.leadsBySource[s].unique; });
+      var tot = { page_view: 0, form_start: 0, form_submit: 0, result_view: 0, cta_click: 0, sessions: 0 };
+      Object.keys(d.funnel).forEach(function (s) { STEPS.concat("sessions").forEach(function (k) { tot[k] += d.funnel[s][k] || 0; }); });
+      var leadsTotal = 0, leadsAll = 0;
+      Object.keys(d.leadsBySource).forEach(function (s) { leadsTotal += d.leadsBySource[s].unique; leadsAll += d.leadsBySource[s].leads; });
 
       document.getElementById("tiles").innerHTML = [
-        ["Page views", tot.page_view, ""], ["Form starts", tot.form_start, pct(tot.form_start, tot.page_view) + " of views"],
+        ["Page views", tot.page_view, tot.sessions + " unique sessions"], ["Form starts", tot.form_start, pct(tot.form_start, tot.page_view) + " of views"],
         ["Form submits", tot.form_submit, pct(tot.form_submit, tot.page_view) + " of views"],
         ["Result views", tot.result_view, pct(tot.result_view, tot.form_submit) + " of submits"],
-        ["Unique leads", leadsTotal, ""], ["CTA clicks", tot.cta_click, pct(tot.cta_click, tot.result_view) + " of results"]
+        ["Unique leads", leadsTotal, leadsAll + " submissions incl. repeat phones"], ["CTA clicks", tot.cta_click, pct(tot.cta_click, tot.result_view) + " of results"]
       ].map(function (t) {
         return '<div class="tile"><div class="k">' + t[0] + '</div><div class="v">' + t[1] + '</div><div class="note">' + t[2] + "</div></div>";
       }).join("");
 
       var srcs = Object.keys(d.funnel).sort(function (a, b) { return d.funnel[b].page_view - d.funnel[a].page_view; });
       var max = Math.max.apply(null, srcs.map(function (s) { return d.funnel[s].page_view; }).concat(1));
-      document.getElementById("funnel").innerHTML = srcs.length ? "<table><tr><th>utm_source</th><th class=n>Views</th><th class=n>Starts</th><th class=n>Submits</th><th class=n>Results</th><th class=n>CTA</th><th class=n>View→Lead</th><th></th></tr>" +
+      document.getElementById("funnel").innerHTML = srcs.length ? "<table><tr><th>utm_source</th><th class=n>Sessions</th><th class=n>Views</th><th class=n>Starts</th><th class=n>Submits</th><th class=n>Results</th><th class=n>CTA</th><th class=n>View→Lead</th><th></th></tr>" +
         srcs.map(function (s) {
           var f = d.funnel[s];
-          return "<tr><td>" + esc(s) + "</td>" + STEPS.map(function (k) { return "<td class=n>" + (f[k] || 0) + "</td>"; }).join("") +
+          return "<tr><td>" + esc(s) + "</td><td class=n>" + (f.sessions || 0) + "</td>" + STEPS.map(function (k) { return "<td class=n>" + (f[k] || 0) + "</td>"; }).join("") +
             "<td class=n>" + pct(f.form_submit, f.page_view) + '</td><td style="width:25%"><div class="bar" style="width:' + (100 * f.page_view / max) + '%"></div></td></tr>';
         }).join("") + "</table>" : '<p class="note">No events yet.</p>';
 

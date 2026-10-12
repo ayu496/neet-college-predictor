@@ -40,10 +40,12 @@ assert.strictEqual(P.predict(130, "SC", "Delhi").qualified, true);
 assert.strictEqual(P.predict(200, "UR", "Delhi").total, 0);
 
 // Phone validation
-assert.strictEqual(P.normalizePhone("+91 98765 43210"), "9876543210");
-assert.strictEqual(P.normalizePhone("09876543210"), "9876543210");
-assert.ok(P.validPhone("9876543210"));
-assert.ok(!P.validPhone("5876543210"));
-assert.ok(!P.validPhone("9999999999"));
-assert.ok(!P.validPhone("98765"));
+assert.strictEqual(P.normalizePhone("+91 98123 45670"), "9812345670");
+assert.strictEqual(P.normalizePhone("09812345670"), "9812345670");
+for (const ok of ["9812345670", "7019283746", "6300112233", "8800450067"]) assert.ok(P.validPhone(ok), ok);
+for (const bad of ["", "98123", "981234567", "98123456701", "5812345670", "0812345670",
+  "9999999999", "9898989898", "9999988888", "9876543210", "6789012345", "8901234567"]) assert.ok(!P.validPhone(bad), bad);
+assert.ok(/exactly 10 digits \(you entered 5\)/.test(P.phoneError("98123")));
+assert.ok(/start with 6, 7, 8 or 9/.test(P.phoneError("5812345670")));
+assert.ok(/real mobile number/.test(P.phoneError("9876543210")));
 console.log("All tests passed. UR 600 → safe/moderate/reach =", r.groups.safe.length, r.groups.moderate.length, r.groups.reach.length);

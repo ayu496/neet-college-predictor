@@ -29,7 +29,7 @@ Tab **`Events`**: `timestamp, event, session_id, utm_*, device, is_test, props(J
 
 - **Test leads:** any visit with `?test=1`, or with `test` in `utm_source`/`utm_campaign`, is flagged `is_test=TRUE` and excluded from the dashboard by default.
 - **Duplicate phones:** checked server-side and flagged `is_duplicate=TRUE`. The student still sees results (no dead end), but the lead is not counted as unique.
-- **Admin view:** [/admin.html](https://ayu496.github.io/neet-college-predictor/admin.html) shows funnel by source (unique sessions), conversion %, and leads with masked phones (`98XXXXXX10`). It's protected by `ADMIN_KEY`.
+- **Admin view:** [/admin.html](https://ayu496.github.io/neet-college-predictor/admin.html) shows funnel event counts by source (plus unique sessions), conversion %, and leads with masked phones (`98XXXXXX10`). It's protected by `ADMIN_KEY`.
 
 ## Run locally
 

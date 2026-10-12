@@ -176,7 +176,19 @@
     if (d.length === 11 && d[0] === "0") d = d.slice(1);
     return d;
   }
-  function validPhone(d) { return /^[6-9]\d{9}$/.test(d) && !/^(\d)\1{9}$/.test(d); }
+  // Returns "" when valid, otherwise the message to show. Mirrored server-side in backend/Code.gs.
+  function phoneError(d) {
+    if (!d) return "Enter your 10-digit mobile number.";
+    if (d.length !== 10) return "Mobile number must be exactly 10 digits (you entered " + d.length + ").";
+    if (!/^[6-9]/.test(d)) return "Indian mobile numbers start with 6, 7, 8 or 9.";
+    var distinct = {};
+    for (var i = 0; i < d.length; i++) distinct[d[i]] = 1;
+    // Catches 9999999999, 9898989898, 9999988888 and straight runs like 9876543210 / 6789012345.
+    if (Object.keys(distinct).length < 4 || "01234567890123456789".indexOf(d) >= 0 || "98765432109876543210".indexOf(d) >= 0)
+      return "This doesn't look like a real mobile number. Please check it.";
+    return "";
+  }
+  function validPhone(d) { return !phoneError(d); }
   function setErr(input, errEl, msg) {
     errEl.textContent = msg || "";
     input.classList.toggle("bad", !!msg);
@@ -272,10 +284,9 @@
       setErr(nameEl, $("nameErr"), "Enter your name (letters only).");
       ok = false;
     } else setErr(nameEl, $("nameErr"));
-    if (!validPhone(phone)) {
-      setErr(phoneEl, $("phoneErr"), "Enter a valid 10-digit Indian mobile number starting with 6–9.");
-      ok = false;
-    } else setErr(phoneEl, $("phoneErr"));
+    var pErr = phoneError(phone);
+    setErr(phoneEl, $("phoneErr"), pErr);
+    if (pErr) ok = false;
     if (!ok) { (nameEl.classList.contains("bad") ? nameEl : phoneEl).focus(); return; }
 
     var inp = state.input, res = state.result;
@@ -359,14 +370,32 @@
       $(id).addEventListener("input", onFirstInput, { once: true });
     });
     document.querySelectorAll('input[name="category"]').forEach(function (r) { r.addEventListener("change", onFirstInput); });
-    $("phone").addEventListener("input", function () { this.value = this.value.replace(/[^\d+\s]/g, ""); });
+    // Keep the field to 10 digits as the user types or pastes ("+91 98…" / "098…" are trimmed).
+    $("phone").addEventListener("input", function () {
+      var d = this.value.replace(/\D/g, "");
+      if (d.length > 10) d = normalizePhone(d).slice(0, 10);
+      this.value = d;
+      var hint = $("phoneHint");
+      hint.textContent = d.length + "/10 digits";
+      hint.classList.toggle("done", d.length === 10 && validPhone(d));
+      if (this.classList.contains("bad") && validPhone(d)) setErr(this, $("phoneErr"));
+    });
+    $("phone").addEventListener("blur", function () {
+      if (this.value) setErr(this, $("phoneErr"), phoneError(this.value));
+    });
 
     $("scoreForm").addEventListener("submit", onScoreSubmit);
     $("leadForm").addEventListener("submit", onLeadSubmit);
     $("backBtn").addEventListener("click", function () { show("step1"); });
     $("shareBtn").addEventListener("click", onShare);
     $("ctaCall").addEventListener("click", onCta);
-    $("restartBtn").addEventListener("click", function () { show("step1"); $("score").focus(); });
+    $("restartBtn").addEventListener("click", function () {
+      // A new attempt is a new pass through the funnel.
+      state.formStarted = false;
+      show("step1");
+      $("score").focus();
+      onFirstInput();
+    });
 
     track("page_view", { utm_source: utm.utm_source, utm_medium: utm.utm_medium, utm_campaign: utm.utm_campaign, device: device });
   }
@@ -382,7 +411,7 @@
   });
 
   // Expose pure functions for tests.
-  window.__predictor = { scoreToAir: scoreToAir, predict: predict, normalizePhone: normalizePhone, validPhone: validPhone,
+  window.__predictor = { scoreToAir: scoreToAir, predict: predict, normalizePhone: normalizePhone, validPhone: validPhone, phoneError: phoneError,
     _load: function (c, a) { colleges = c; anchors = a.slice().sort(function (x, y) { return y.score - x.score; }); } };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
