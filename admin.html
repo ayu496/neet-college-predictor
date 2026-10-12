@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Leads Dashboard</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .wrap { max-width: 980px; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { color: var(--muted); font-weight: 600; }
+    td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+    .scroll { overflow-x: auto; }
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+    .tile .v { font-size: 1.6rem; }
+    .bar { height: 8px; background: var(--brand); border-radius: 4px; margin-top: 6px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .row input[type=password] { flex: 1; min-width: 200px; }
+    .row .btn { width: auto; margin: 0; padding: 12px 18px; }
+    .note { color: var(--muted); font-size: .85rem; }
+    .pill { font-size: .7rem; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="top"><div class="wrap top-inner">📊 Leads dashboard</div></header>
+  <main class="wrap">
+    <div class="card">
+      <form class="row" id="f">
+        <input type="password" id="key" placeholder="Admin key" autocomplete="current-password">
+        <label style="margin:0;font-weight:500"><input type="checkbox" id="test"> include test</label>
+        <button class="btn primary" type="submit">Load</button>
+      </form>
+      <p class="note" id="mode"></p>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="card"><h3>Funnel by source <span class="note">(unique sessions)</span></h3><div class="scroll" id="funnel"></div></div>
+    <div class="card"><h3>Leads <span class="note">(phones masked)</span></h3><div class="scroll" id="leads"></div></div>
+  </main>
+  <script src="config.js"></script>
+  <script>
+  (function () {
+    var CFG = window.APP_CONFIG || {};
+    var STEPS = ["page_view", "form_start", "form_submit", "result_view", "cta_click"];
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function mask(p) { p = String(p); return p.length === 10 ? p.slice(0, 2) + "XXXXXX" + p.slice(8) : "XXXXXXXXXX"; }
+    function pct(a, b) { return b ? Math.round(100 * a / b) + "%" : "—"; }
+
+    function localStats(includeTest) {
+      var ev = [], leads = [];
+      try { ev = JSON.parse(localStorage.getItem("np_local_events") || "[]"); leads = JSON.parse(localStorage.getItem("np_local_leads") || "[]"); } catch (e) {}
+      var funnel = {}, seen = {}, by = {};
+      ev.forEach(function (r) {
+        if (r.is_test && !includeTest) return;
+        var k = r.event + "|" + r.session_id; if (seen[k]) return; seen[k] = 1;
+        var s = r.utm_source || "direct";
+        funnel[s] = funnel[s] || { page_view: 0, form_start: 0, form_submit: 0, result_view: 0, cta_click: 0 };
+        funnel[s][r.event]++;
+      });
+      var recent = leads.filter(function (l) { return includeTest || !l.is_test; }).map(function (l) {
+        var s = l.utm_source || "direct";
+        by[s] = by[s] || { leads: 0, unique: 0 }; by[s].leads++; if (!l.is_duplicate) by[s].unique++;
+        return Object.assign({}, l, { phone: mask(l.phone) });
+      }).reverse();
+      return { ok: true, funnel: funnel, leadsBySource: by, recent: recent };
+    }
+
+    function render(d) {
+      if (!d.ok) { document.getElementById("mode").textContent = "Error: " + (d.error || "failed"); return; }
+      var tot = { page_view: 0, form_start: 0, form_submit: 0, result_view: 0, cta_click: 0 };
+      Object.keys(d.funnel).forEach(function (s) { STEPS.forEach(function (k) { tot[k] += d.funnel[s][k] || 0; }); });
+      var leadsTotal = 0; Object.keys(d.leadsBySource).forEach(function (s) { leadsTotal += d.leadsBySource[s].unique; });
+
+      document.getElementById("tiles").innerHTML = [
+        ["Page views", tot.page_view, ""], ["Form starts", tot.form_start, pct(tot.form_start, tot.page_view) + " of views"],
+        ["Form submits", tot.form_submit, pct(tot.form_submit, tot.page_view) + " of views"],
+        ["Result views", tot.result_view, pct(tot.result_view, tot.form_submit) + " of submits"],
+        ["Unique leads", leadsTotal, ""], ["CTA clicks", tot.cta_click, pct(tot.cta_click, tot.result_view) + " of results"]
+      ].map(function (t) {
+        return '<div class="tile"><div class="k">' + t[0] + '</div><div class="v">' + t[1] + '</div><div class="note">' + t[2] + "</div></div>";
+      }).join("");
+
+      var srcs = Object.keys(d.funnel).sort(function (a, b) { return d.funnel[b].page_view - d.funnel[a].page_view; });
+      var max = Math.max.apply(null, srcs.map(function (s) { return d.funnel[s].page_view; }).concat(1));
+      document.getElementById("funnel").innerHTML = srcs.length ? "<table><tr><th>utm_source</th><th class=n>Views</th><th class=n>Starts</th><th class=n>Submits</th><th class=n>Results</th><th class=n>CTA</th><th class=n>View→Lead</th><th></th></tr>" +
+        srcs.map(function (s) {
+          var f = d.funnel[s];
+          return "<tr><td>" + esc(s) + "</td>" + STEPS.map(function (k) { return "<td class=n>" + (f[k] || 0) + "</td>"; }).join("") +
+            "<td class=n>" + pct(f.form_submit, f.page_view) + '</td><td style="width:25%"><div class="bar" style="width:' + (100 * f.page_view / max) + '%"></div></td></tr>';
+        }).join("") + "</table>" : '<p class="note">No events yet.</p>';
+
+      document.getElementById("leads").innerHTML = d.recent.length ? "<table><tr><th>Time</th><th>Name</th><th>Phone</th><th class=n>Score</th><th>Cat</th><th>State</th><th class=n>Est. AIR</th><th>Source</th><th>Medium</th><th>Campaign</th><th></th></tr>" +
+        d.recent.map(function (l) {
+          return "<tr><td>" + esc(new Date(l.timestamp).toLocaleString("en-IN")) + "</td><td>" + esc(l.name) + "</td><td>" + esc(l.phone) +
+            "</td><td class=n>" + esc(l.score) + "</td><td>" + esc(l.category) + "</td><td>" + esc(l.state) + "</td><td class=n>" + esc(l.predicted_rank) +
+            "</td><td>" + esc(l.utm_source) + "</td><td>" + esc(l.utm_medium) + "</td><td>" + esc(l.utm_campaign) + "</td><td>" +
+            (l.is_test ? '<span class="pill">test</span> ' : "") + (l.is_duplicate ? '<span class="pill">dup</span>' : "") + "</td></tr>";
+        }).join("") + "</table>" : '<p class="note">No leads yet.</p>';
+    }
+
+    function load(e) {
+      if (e) e.preventDefault();
+      var inc = document.getElementById("test").checked;
+      if (!CFG.ENDPOINT) {
+        document.getElementById("mode").textContent = "Local demo mode: showing data saved in this browser only. Set ENDPOINT in config.js to use Google Sheets.";
+        render(localStats(inc)); return;
+      }
+      var key = document.getElementById("key").value;
+      try { sessionStorage.setItem("np_admin_key", key); } catch (err) {}
+      document.getElementById("mode").textContent = "Loading…";
+      fetch(CFG.ENDPOINT + "?action=stats&key=" + encodeURIComponent(key) + (inc ? "&include_test=1" : ""))
+        .then(function (r) { return r.json(); })
+        .then(function (d) { document.getElementById("mode").textContent = d.ok ? "Live from Google Sheets · " + new Date().toLocaleTimeString() : ""; render(d); })
+        .catch(function () { document.getElementById("mode").textContent = "Couldn't reach the endpoint."; });
+    }
+    try { document.getElementById("key").value = sessionStorage.getItem("np_admin_key") || ""; } catch (err) {}
+    document.getElementById("f").addEventListener("submit", load);
+    if (!CFG.ENDPOINT || document.getElementById("key").value) load();
+  })();
+  </script>
+</body>
+</html>

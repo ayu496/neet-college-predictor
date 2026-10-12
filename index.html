@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NEET 2025 College Predictor – Find Your MBBS College by Score</title>
+  <meta name="description" content="Free NEET college predictor. Enter your NEET score, category and state to see which government MBBS colleges you can get through All India Quota, grouped as Safe, Moderate and Reach.">
+  <meta name="theme-color" content="#0f5fd7">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ayu496.github.io/neet-college-predictor/">
+  <link rel="canonical" href="https://ayu496.github.io/neet-college-predictor/">
+  <meta property="og:title" content="NEET College Predictor – Which MBBS college can you get?">
+  <meta property="og:description" content="Enter your NEET score and category. See Safe, Moderate and Reach government MBBS colleges in 30 seconds. Free.">
+  <meta property="og:image" content="https://ayu496.github.io/neet-college-predictor/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <span class="logo" aria-hidden="true">🩺</span>
+      <span class="brand">NEET College Predictor <small>2025 AIQ</small></span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- STEP 1: score / category / state -->
+    <section id="step1" class="card" aria-labelledby="h1">
+      <h1 id="h1">Which MBBS college can you get with your NEET score?</h1>
+      <p class="sub">Free · 30 seconds · 50 government colleges, All India Quota</p>
+
+      <form id="scoreForm" novalidate>
+        <label for="score">Your NEET score <span class="hint">(0–720)</span></label>
+        <input id="score" name="score" type="number" inputmode="numeric" min="0" max="720" placeholder="e.g. 580" required autocomplete="off">
+        <p class="err" id="scoreErr" role="alert"></p>
+
+        <span class="label" id="catLbl">Category</span>
+        <div class="chips" role="radiogroup" aria-labelledby="catLbl">
+          <label><input type="radio" name="category" value="UR" checked><span>General</span></label>
+          <label><input type="radio" name="category" value="EWS"><span>EWS</span></label>
+          <label><input type="radio" name="category" value="OBC"><span>OBC</span></label>
+          <label><input type="radio" name="category" value="SC"><span>SC</span></label>
+          <label><input type="radio" name="category" value="ST"><span>ST</span></label>
+        </div>
+
+        <label for="state">Home state</label>
+        <select id="state" name="state" required>
+          <option value="">Select your state</option>
+        </select>
+        <p class="err" id="stateErr" role="alert"></p>
+
+        <button type="submit" class="btn primary">Predict my colleges →</button>
+      </form>
+      <ul class="trust">
+        <li>✔ Based on 2025 MCC closing ranks</li>
+        <li>✔ Category-wise cut-offs</li>
+        <li>✔ No sign-up needed</li>
+      </ul>
+    </section>
+
+    <!-- STEP 2: lead capture -->
+    <section id="step2" class="card" hidden aria-labelledby="h2">
+      <button type="button" class="back" id="backBtn">← Edit score</button>
+      <div class="teaser">
+        <div class="teaser-label">Your estimated All India Rank</div>
+        <div class="teaser-air" id="teaserAir">—</div>
+        <div class="teaser-match" id="teaserMatch"></div>
+      </div>
+      <h2 id="h2">Your college list is ready</h2>
+      <p class="sub">Tell us where to send it. You'll see the full list right after.</p>
+      <form id="leadForm" novalidate>
+        <label for="name">Your name</label>
+        <input id="name" name="name" type="text" autocomplete="name" maxlength="60" placeholder="Full name" required>
+        <p class="err" id="nameErr" role="alert"></p>
+
+        <label for="phone">Mobile number</label>
+        <div class="phone">
+          <span class="cc">+91</span>
+          <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="14" placeholder="10-digit mobile" required>
+        </div>
+        <p class="err" id="phoneErr" role="alert"></p>
+        <p class="consent">We'll use this number to share your result and NEET counselling updates from NEETprep. No spam.</p>
+
+        <button type="submit" class="btn primary" id="leadBtn">Show my colleges</button>
+      </form>
+    </section>
+
+    <!-- STEP 3: results -->
+    <section id="results" hidden aria-live="polite">
+      <div class="card summary">
+        <div class="sum-row">
+          <div><div class="k">Score</div><div class="v" id="rScore"></div></div>
+          <div><div class="k">Category</div><div class="v" id="rCat"></div></div>
+          <div><div class="k">Est. AIR</div><div class="v" id="rAir"></div></div>
+        </div>
+        <div class="counts" id="rCounts"></div>
+      </div>
+
+      <div id="buckets"></div>
+
+      <div class="card cta">
+        <h3>Confused about choice filling?</h3>
+        <p>Get a free 15-minute counselling call with a NEETprep mentor: choice filling, state quota and round strategy.</p>
+        <button class="btn primary" id="ctaCall" type="button">Get a free counselling call</button>
+        <p class="cta-done" id="ctaDone" hidden>✅ Done! A mentor will call you within 24 hours.</p>
+      </div>
+
+      <button class="btn whatsapp" id="shareBtn" type="button">Share my result on WhatsApp</button>
+      <button class="btn ghost" id="restartBtn" type="button">Try another score</button>
+
+      <p class="disclaimer"><strong>Disclaimer:</strong> Ranks and cut-offs are indicative, prepared from published 2025 MCC counselling summaries and 2025 trend estimates. This is not official NTA/MCC data. Covers only All India Quota (15%) MBBS seats at 50 government colleges. Actual allotment depends on choice filling, seat matrix and round-wise movement.</p>
+    </section>
+  </main>
+
+  <footer class="wrap foot">Made for NEET aspirants · Data: 2025 AIQ (indicative)</footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
